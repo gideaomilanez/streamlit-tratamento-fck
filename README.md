@@ -15,6 +15,7 @@ O app também exibe uma **prévia (início da planilha)** na tela.
 
 ## Estrutura do projeto
 
+```text
 streamlit/
 ├─ app.py
 ├─ requirements.txt
