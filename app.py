@@ -1,4 +1,3 @@
-# app.py
 import io
 import re
 from datetime import datetime
@@ -8,7 +7,6 @@ import pandas as pd
 import streamlit as st
 
 
-# ---------- Funções (mesma lógica do seu script) ----------
 def numero(valor_string):
     try:
         return float(str(valor_string).replace(",", "."))
@@ -28,9 +26,7 @@ def formatar_mes(texto_periodo):
 
 
 def extrair_dados_ttx_bytes(conteudo_bytes: bytes):
-    """
-    Recebe o conteúdo do .ttx em bytes, decodifica (latin-1) e aplica a mesma regra do seu extrator.
-    """
+
     texto = conteudo_bytes.decode("latin-1", errors="replace")
     dados_extraidos = []
 
@@ -42,11 +38,14 @@ def extrair_dados_ttx_bytes(conteudo_bytes: bytes):
     dt_mold = ""
 
     for linha in texto.splitlines():
+
         linha = linha.strip()
+
         if not linha:
             continue
 
         partes = [p.strip('" ') for p in linha.split("\t")]
+
         if not partes:
             continue
 
@@ -69,6 +68,7 @@ def extrair_dados_ttx_bytes(conteudo_bytes: bytes):
             match = re.search(r"Usina:\s*(.*)", partes[0])
             if match:
                 usina = match.group(1)
+
             for p in partes:
                 if p.startswith("Peca Concretar:"):
                     peca = p.replace("Peca Concretar:", "").strip()
@@ -79,9 +79,11 @@ def extrair_dados_ttx_bytes(conteudo_bytes: bytes):
                 dt_mold = match.group(1)
 
         elif partes[0].isdigit():
-            # mesma regra: precisa ter >= 15 campos
+
             if len(partes) >= 15:
+
                 nf = partes[0]
+                bt = partes[2]
                 uso = partes[3]
                 brita = partes[4]
                 slump = numero(partes[5])
@@ -99,6 +101,7 @@ def extrair_dados_ttx_bytes(conteudo_bytes: bytes):
                         "MÊS": formatar_mes(mes_raw),
                         "DATA MOLDAGEM": dt_mold,
                         "NF": nf,
+                        "BT": bt,
                         "CLIENTE": cliente,
                         "OBRA": obra,
                         "USO": uso,
@@ -116,60 +119,76 @@ def extrair_dados_ttx_bytes(conteudo_bytes: bytes):
 
 
 def df_para_excel_bytes(df: pd.DataFrame) -> bytes:
-    """
-    Gera o Excel em memória e formata a coluna 'MÊS' como MM/YYYY (igual seu código).
-    """
+
     buffer = io.BytesIO()
+
     with pd.ExcelWriter(buffer, engine="openpyxl", date_format="MM/YYYY") as writer:
+
         df.to_excel(writer, index=False, sheet_name="Dados")
 
         ws = writer.sheets["Dados"]
+
         colunas = list(df.columns)
 
         if "MÊS" in colunas:
-            col_idx = colunas.index("MÊS") + 1  # 1-based
+
+            col_idx = colunas.index("MÊS") + 1
+
             for row in ws.iter_rows(min_row=2, min_col=col_idx, max_col=col_idx):
                 for cell in row:
                     cell.number_format = "MM/YYYY"
 
     buffer.seek(0)
+
     return buffer.getvalue()
 
 
 def nome_arquivo_saida(df: pd.DataFrame) -> str:
+
     meses_validos = df["MÊS"].dropna() if "MÊS" in df.columns else pd.Series([], dtype="datetime64[ns]")
+
     mes_ref = meses_validos.iloc[0] if len(meses_validos) else datetime.now()
+
     return mes_ref.strftime("%Y-%m") + "-database.xlsx"
 
 
-# ---------- UI Streamlit ----------
 st.set_page_config(page_title="Tratamento FCK (.ttx → Excel)", layout="wide")
+
 st.title("Tratamento FCK (.ttx → Excel)")
 
-st.write("Envie um arquivo **.ttx**. O app vai tratar e gerar um **Excel** para download, e mostrar o início da tabela.")
+st.write(
+    "Envie um arquivo **.ttx**. O app vai tratar e gerar um **Excel** para download."
+)
 
 arquivo = st.file_uploader("Upload do arquivo .ttx", type=["ttx"])
 
+
 if arquivo is not None:
+
     with st.spinner("Lendo e tratando o arquivo..."):
+
         conteudo = arquivo.read()
+
         dados = extrair_dados_ttx_bytes(conteudo)
 
         if not dados:
-            st.error("Não consegui extrair registros desse .ttx (verifique se é o layout esperado).")
+            st.error("Não consegui extrair registros desse .ttx.")
             st.stop()
 
         df = pd.DataFrame(dados)
 
     c1, c2, c3 = st.columns(3)
+
     c1.metric("Arquivo", arquivo.name)
     c2.metric("Registros extraídos", f"{len(df):,}".replace(",", "."))
     c3.metric("Colunas", str(df.shape[1]))
 
-    st.subheader("Início da planilha (prévia)")
+    st.subheader("Prévia da planilha")
+
     st.dataframe(df.head(20), use_container_width=True)
 
     excel_bytes = df_para_excel_bytes(df)
+
     saida = nome_arquivo_saida(df)
 
     st.download_button(
