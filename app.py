@@ -90,10 +90,17 @@ def extrair_dados_ttx_bytes(conteudo_bytes: bytes):
                 cimento = partes[7]
                 fck = numero(partes[8])
                 maior_7 = numero(partes[11])
+                _28dias_1 = numero(partes[12])
+                _28dias_2 = numero(partes[13])
                 maior_28 = numero(partes[14])
 
+                # Tratar 0.0 como NaN
                 if maior_28 == 0.0:
                     maior_28 = np.nan
+                if _28dias_1 == 0.0:
+                    _28dias_1 = np.nan
+                if _28dias_2 == 0.0:
+                    _28dias_2 = np.nan
 
                 dados_extraidos.append(
                     {
@@ -111,6 +118,8 @@ def extrair_dados_ttx_bytes(conteudo_bytes: bytes):
                         "PEÇA": peca,
                         "TIPO DE CIMENTO": cimento,
                         "7_DIAS": maior_7,
+                        "28_DIAS_1": _28dias_1,
+                        "28_DIAS_2": _28dias_2,
                         "28_DIAS": maior_28,
                     }
                 )
